@@ -6,6 +6,11 @@ This document records key decisions, assumptions, and design choices made during
 
 ## Log of Decisions (Newest First)
 
+### [2026-08-02] Decision 8: Full-Width Layout Shell & Header Brand Integration
+- **Decision**: Removed the left sidebar navigation column to streamline the command center layout into a full-width console. Integrated KSPDB branding and logo into the top header bar alongside real-time status indicators.
+- **Rationale**: Maximize screen real estate for the Leaflet operator map and active fault incident cards. Command shortcuts remain accessible directly on each incident ticket card.
+
+
 ### [2026-08-01] Decision 7: Pure Deterministic Functional Core for Localization Engine
 - **Decision**: Separate the localization logic into a pure, side-effect-free module `backend/src/engine/localization.js` isolated from HTTP, database, and background queues.
 - **Rationale**: Ensures the algorithm is 100% testable with mock data and zero database dependencies. Allows instant unit testing of complex boundary conditions (known topology, inferred topology, single dead sensor, scheduled outage grace periods).
