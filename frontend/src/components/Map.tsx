@@ -4,19 +4,19 @@ import { useEffect, useState } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, Polyline, CircleMarker } from 'react-leaflet';
 import L from 'leaflet';
 
-// Fix leafet icon default issue in SSR / Next.js
+// Custom markers — flat, no glow/shadow
 const subIcon = L.divIcon({
   className: 'custom-sub-icon',
-  html: '<div style="background-color: #ef4444; width: 18px; height: 18px; border-radius: 4px; border: 2px solid white; box-shadow: 0 0 8px #ef4444;"></div>',
-  iconSize: [18, 18],
-  iconAnchor: [9, 9]
+  html: '<div style="background-color: #c0392b; width: 16px; height: 16px; border-radius: 3px; border: 2px solid #e8e4d9;"></div>',
+  iconSize: [16, 16],
+  iconAnchor: [8, 8]
 });
 
 const dtIcon = L.divIcon({
   className: 'custom-dt-icon',
-  html: '<div style="background-color: #3b82f6; width: 14px; height: 14px; border-radius: 50%; border: 2px solid white; box-shadow: 0 0 6px #3b82f6;"></div>',
-  iconSize: [14, 14],
-  iconAnchor: [7, 7]
+  html: '<div style="background-color: #c4a035; width: 12px; height: 12px; border-radius: 50%; border: 2px solid #e8e4d9;"></div>',
+  iconSize: [12, 12],
+  iconAnchor: [6, 6]
 });
 
 interface MapProps {
@@ -34,7 +34,7 @@ export default function MapView({ network, tickets, onSelectPole }: MapProps) {
 
   if (!isClient || !network) {
     return (
-      <div className="w-full h-full flex items-center justify-center bg-slate-900 text-slate-400 rounded-xl">
+      <div className="w-full h-full flex items-center justify-center bg-cc-card text-cc-text-mut rounded border border-cc-border">
         Loading Map View...
       </div>
     );
@@ -66,7 +66,7 @@ export default function MapView({ network, tickets, onSelectPole }: MapProps) {
   });
 
   return (
-    <div className="w-full h-full relative rounded-xl overflow-hidden shadow-2xl border border-slate-800">
+    <div className="w-full h-full relative rounded overflow-hidden border border-cc-border">
       <MapContainer center={center} zoom={14} scrollWheelZoom={true} className="w-full h-full">
         <TileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
@@ -77,10 +77,10 @@ export default function MapView({ network, tickets, onSelectPole }: MapProps) {
         {network.substations?.map((sub: any) => (
           <Marker key={sub.substation_id} position={[sub.lat, sub.lon]} icon={subIcon}>
             <Popup>
-              <div className="text-slate-900 p-1">
-                <h4 className="font-bold text-sm">{sub.name}</h4>
-                <p className="text-xs text-slate-600">Substation Code: {sub.code}</p>
-                <p className="text-xs text-slate-500">({sub.lat.toFixed(4)}, {sub.lon.toFixed(4)})</p>
+              <div className="p-1">
+                <h4 className="font-bold text-sm text-cc-text">{sub.name}</h4>
+                <p className="text-xs text-cc-text-sec">Substation Code: {sub.code}</p>
+                <p className="text-xs text-cc-text-mut">({sub.lat.toFixed(4)}, {sub.lon.toFixed(4)})</p>
               </div>
             </Popup>
           </Marker>
@@ -90,11 +90,11 @@ export default function MapView({ network, tickets, onSelectPole }: MapProps) {
         {network.transformers?.map((dt: any) => (
           <Marker key={dt.dt_id} position={[dt.lat, dt.lon]} icon={dtIcon}>
             <Popup>
-              <div className="text-slate-900 p-1">
-                <h4 className="font-bold text-sm">Transformer: {dt.dt_id}</h4>
-                <p className="text-xs text-slate-600">Capacity: {dt.capacity_kva} kVA</p>
-                <p className="text-xs text-slate-600">Households Served: {dt.households_served}</p>
-                <p className="text-xs text-slate-500">Feeder: {dt.feeder_id}</p>
+              <div className="p-1">
+                <h4 className="font-bold text-sm text-cc-text">Transformer: {dt.dt_id}</h4>
+                <p className="text-xs text-cc-text-sec">Capacity: {dt.capacity_kva} kVA</p>
+                <p className="text-xs text-cc-text-sec">Households Served: {dt.households_served}</p>
+                <p className="text-xs text-cc-text-mut">Feeder: {dt.feeder_id}</p>
               </div>
             </Popup>
           </Marker>
@@ -106,9 +106,9 @@ export default function MapView({ network, tickets, onSelectPole }: MapProps) {
           const isLowConf = lowConfPoles.has(pole.pole_id);
           const hasDevice = !!pole.device_id;
 
-          let color = '#22c55e'; // Energized green
-          if (!hasDevice) color = '#94a3b8'; // No device gray
-          if (isDark) color = isLowConf ? '#f97316' : '#ef4444'; // Orange for low conf, Red for high conf
+          let color = '#27ae60'; // Energized green
+          if (!hasDevice) color = '#6b6860'; // No device muted
+          if (isDark) color = isLowConf ? '#c4a035' : '#c0392b'; // Gold for low conf, Red for high conf
 
           return (
             <CircleMarker
@@ -119,25 +119,29 @@ export default function MapView({ network, tickets, onSelectPole }: MapProps) {
                 color: color,
                 fillColor: color,
                 fillOpacity: 0.9,
-                weight: isDark ? 3 : 1
+                weight: isDark ? 2.5 : 1
               }}
               eventHandlers={{
                 click: () => onSelectPole && onSelectPole(pole.pole_id)
               }}
             >
               <Popup>
-                <div className="text-slate-900 p-1">
+                <div className="p-1">
                   <div className="flex items-center gap-2">
-                    <h4 className="font-bold text-sm">{pole.pole_id}</h4>
-                    <span className={`text-[10px] px-1.5 py-0.5 rounded ${isDark ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
+                    <h4 className="font-bold text-sm text-cc-text">{pole.pole_id}</h4>
+                    <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold ${
+                      isDark
+                        ? 'bg-cc-red-bg text-cc-red border border-cc-red/30'
+                        : 'bg-cc-green-bg text-cc-green border border-cc-green/30'
+                    }`}>
                       {isDark ? 'DARK' : 'LIVE'}
                     </span>
                   </div>
-                  <p className="text-xs text-slate-600 mt-1">DT: {pole.dt_id} | Feeder: {pole.feeder_id}</p>
-                  <p className="text-xs text-slate-600">Topology: {pole.topology_type?.toUpperCase()}</p>
-                  {pole.parent_pole_id && <p className="text-xs text-slate-500">Parent: {pole.parent_pole_id}</p>}
-                  <p className="text-xs text-slate-500">Ward: {pole.ward} | PIN: {pole.pincode}</p>
-                  <p className="text-[11px] text-slate-400 mt-1 font-mono">{pole.device_id || 'No Sensor Fitted'}</p>
+                  <p className="text-xs text-cc-text-sec mt-1">DT: {pole.dt_id} | Feeder: {pole.feeder_id}</p>
+                  <p className="text-xs text-cc-text-sec">Topology: {pole.topology_type?.toUpperCase()}</p>
+                  {pole.parent_pole_id && <p className="text-xs text-cc-text-mut">Parent: {pole.parent_pole_id}</p>}
+                  <p className="text-xs text-cc-text-mut">Ward: {pole.ward} | PIN: {pole.pincode}</p>
+                  <p className="text-[11px] text-cc-text-mut mt-1 font-mono">{pole.device_id || 'No Sensor Fitted'}</p>
                 </div>
               </Popup>
             </CircleMarker>
@@ -152,8 +156,8 @@ export default function MapView({ network, tickets, onSelectPole }: MapProps) {
 
           const isDark = darkPoleIds.has(pole.pole_id) || pole.is_energized === false;
           const isLowConf = lowConfPoles.has(pole.pole_id);
-          let lineColor = '#1e293b';
-          if (isDark) lineColor = isLowConf ? '#f97316' : '#ef4444';
+          let lineColor = '#3a3a32';
+          if (isDark) lineColor = isLowConf ? '#c4a035' : '#c0392b';
 
           return (
             <Polyline

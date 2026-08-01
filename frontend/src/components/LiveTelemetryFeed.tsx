@@ -59,7 +59,7 @@ export default function LiveTelemetryFeed() {
     };
 
     fetchTelemetry();
-    const interval = setInterval(fetchTelemetry, 3000); // 3s polling loop
+    const interval = setInterval(fetchTelemetry, 3000);
 
     return () => {
       isMounted = false;
@@ -68,63 +68,71 @@ export default function LiveTelemetryFeed() {
   }, []);
 
   return (
-    <div className="bg-slate-950 border border-slate-800 rounded-xl p-4 flex flex-col h-[320px]">
-      <div className="flex items-center justify-between border-b border-slate-800 pb-2.5 mb-3">
+    <div className="bg-cc-inner border border-cc-border rounded p-3.5 flex flex-col h-[300px]">
+      {/* Header */}
+      <div className="flex items-center justify-between border-b border-cc-border pb-2 mb-2.5">
         <div className="flex items-center gap-2">
-          <Activity className="w-4 h-4 text-cyan-400" />
-          <h4 className="font-bold text-xs uppercase tracking-wider text-slate-200">
-            Live Telemetry Feed (3s poll)
+          <Activity className="w-3.5 h-3.5 text-cc-gold" />
+          <h4 className="font-bold text-[10px] uppercase tracking-wider text-cc-text">
+            Live Telemetry Feed (3s Poll)
           </h4>
         </div>
-        <span className="text-[10px] font-mono text-slate-400 bg-slate-900 px-2 py-0.5 rounded border border-slate-800">
-          Last 30 Events
-        </span>
+        <div className="flex items-center gap-1.5">
+          <span className="w-1.5 h-1.5 bg-cc-red rounded-full cc-dot-pulse" />
+          <span className="text-[9px] font-bold text-cc-red uppercase tracking-wider">Live</span>
+        </div>
+      </div>
+
+      {/* Table Header */}
+      <div className="grid grid-cols-[1fr_100px_80px_60px] gap-2 px-2 py-1.5 text-[9px] text-cc-text-mut uppercase tracking-wider font-bold border-b border-cc-border">
+        <span>Asset ID</span>
+        <span>Event</span>
+        <span>Status</span>
+        <span className="text-right">Time</span>
       </div>
 
       {loading ? (
-        <div className="flex-1 flex items-center justify-center text-xs text-slate-500">
+        <div className="flex-1 flex items-center justify-center text-[11px] text-cc-text-mut">
           Connecting to telemetry stream...
         </div>
       ) : telemetry.length === 0 ? (
-        <div className="flex-1 flex flex-col items-center justify-center text-xs text-slate-500 gap-1 text-center p-4">
-          <Radio className="w-8 h-8 text-slate-700 mb-1" />
+        <div className="flex-1 flex flex-col items-center justify-center text-[11px] text-cc-text-mut gap-1 text-center p-4">
+          <Radio className="w-6 h-6 text-cc-border mb-1" />
           <span>No Telemetry Received Yet</span>
-          <span className="text-[11px] text-slate-600">Inject a fault above to observe live device telemetry.</span>
+          <span className="text-[10px] text-cc-text-mut">Inject a fault above to observe live device telemetry.</span>
         </div>
       ) : (
-        <div className="flex-1 overflow-y-auto space-y-1.5 pr-1 font-mono text-xs">
+        <div className="flex-1 overflow-y-auto cc-scroll text-[11px] font-mono">
           {telemetry.map(item => {
             const isHighlighted = highlightedId === item.id;
-            let badgeStyle = 'bg-slate-800 text-slate-300 border-slate-700';
+
+            let badgeStyle = 'bg-cc-card text-cc-text-sec border-cc-border';
+            let badgeLabel = item.event.toUpperCase();
 
             if (item.event === 'power_lost') {
-              badgeStyle = 'bg-red-950/90 text-red-400 border-red-800';
+              badgeStyle = 'bg-cc-red-bg text-cc-red border-cc-red/30';
             } else if (item.event === 'power_restored') {
-              badgeStyle = 'bg-emerald-950/90 text-emerald-400 border-emerald-800';
+              badgeStyle = 'bg-cc-green-bg text-cc-green border-cc-green/30';
+              badgeLabel = 'POWER_RESTORED';
             } else if (item.event === 'boot') {
-              badgeStyle = 'bg-blue-950/90 text-blue-400 border-blue-800';
+              badgeStyle = 'bg-cc-gold-bg text-cc-gold border-cc-gold/30';
             } else if (item.event === 'heartbeat') {
-              badgeStyle = 'bg-slate-900 text-slate-400 border-slate-800';
+              badgeStyle = 'bg-cc-card text-cc-text-mut border-cc-border';
             }
 
             return (
               <div
                 key={item.id}
-                className={`flex items-center justify-between p-2 rounded border transition-all duration-500 ${
-                  isHighlighted
-                    ? 'bg-cyan-950/60 border-cyan-500 text-cyan-200 shadow-md shadow-cyan-950'
-                    : 'bg-slate-900/80 border-slate-800/80 text-slate-300 hover:border-slate-700'
+                className={`grid grid-cols-[1fr_100px_80px_60px] gap-2 items-center px-2 py-1.5 border-b border-cc-border/50 transition-colors ${
+                  isHighlighted ? 'cc-row-flash' : 'hover:bg-cc-card'
                 }`}
               >
-                <div className="flex items-center gap-2 truncate">
-                  <span className="font-bold text-slate-100">{item.pole_id}</span>
-                  <span className={`px-2 py-0.5 text-[10px] font-bold rounded border uppercase ${badgeStyle}`}>
-                    {item.event}
-                  </span>
-                </div>
-                <span className="text-[11px] text-slate-400 shrink-0">
-                  {formatRelativeTime(item.received_at || item.ts)}
+                <span className="font-bold text-cc-text truncate">{item.pole_id}</span>
+                <span className={`px-1.5 py-0.5 text-[9px] font-bold rounded border text-center ${badgeStyle}`}>
+                  {badgeLabel}
                 </span>
+                <span className="text-cc-text-sec">{formatRelativeTime(item.ts)}</span>
+                <span className="text-cc-text-mut text-right">{formatRelativeTime(item.received_at || item.ts)}</span>
               </div>
             );
           })}

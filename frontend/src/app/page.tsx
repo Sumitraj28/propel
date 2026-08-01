@@ -2,9 +2,11 @@
 
 import { useEffect, useState, useCallback, useRef } from 'react';
 import dynamic from 'next/dynamic';
+import Sidebar from '../components/Sidebar';
+import Header from '../components/Header';
 import IncidentList from '../components/IncidentList';
 import SimulatorControls from '../components/SimulatorControls';
-import { Activity, Zap, ShieldCheck, AlertCircle, RefreshCw, Radio } from 'lucide-react';
+import { AlertTriangle, Activity, Radio, ShieldCheck } from 'lucide-react';
 
 const MapView = dynamic(() => import('../components/Map'), { ssr: false });
 
@@ -90,7 +92,7 @@ export default function OperatorConsole() {
 
   useEffect(() => {
     fetchInitial();
-    const interval = setInterval(pollLiveState, 5000); // 5s live polling loop
+    const interval = setInterval(pollLiveState, 5000);
     return () => clearInterval(interval);
   }, [fetchInitial, pollLiveState]);
 
@@ -173,102 +175,112 @@ export default function OperatorConsole() {
   const energizedRate = totalPoles > 0 ? (((totalPoles - darkPolesCount) / totalPoles) * 100).toFixed(1) : '100';
   const activeTickets = tickets.filter(t => t.status !== 'verified' && t.status !== 'closed');
   const unknownTopologyDTs = network?.transformers?.filter((d: any) => !d.isKnownTopology).length || 0;
+  const totalDTs = network?.transformers?.length || 0;
+
+  const healthLevel = parseFloat(energizedRate) < 50 ? 'Critical' : parseFloat(energizedRate) < 90 ? 'Low' : 'Nominal';
+  const healthColor = healthLevel === 'Critical' ? 'text-cc-red' : healthLevel === 'Low' ? 'text-cc-gold' : 'text-cc-green';
 
   return (
-    <main className="min-h-screen p-4 md:p-6 space-y-6 max-w-[1600px] mx-auto">
-      {/* Top Header & Stats */}
-      <header className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-xl">
-        <div className="flex items-center gap-3">
-          <div className="p-3 bg-red-950/80 border border-red-800/80 rounded-xl">
-            <Zap className="w-6 h-6 text-red-500" />
-          </div>
-          <div>
-            <h1 className="text-xl font-black tracking-tight text-white flex items-center gap-2">
-              KSPDB Fault Detection & Localization Command Center
-            </h1>
-            <p className="text-xs text-slate-400">
-              Karnataka State Power Distribution Board • Operator Dispatch Console (Real-time Telemetry Graph Analysis)
-            </p>
-          </div>
-        </div>
+    <div className="flex h-screen overflow-hidden bg-cc-bg">
+      {/* Left Sidebar */}
+      <Sidebar />
 
-        <div className="flex items-center gap-4 text-xs">
-          <div className="flex items-center gap-2 text-slate-400 font-mono bg-slate-950 px-3 py-1.5 rounded-lg border border-slate-800">
-            <RefreshCw className="w-3.5 h-3.5 text-cyan-400 animate-spin" />
-            Polling live (5s) • {lastRefreshed.toLocaleTimeString()}
-          </div>
-        </div>
-      </header>
+      {/* Main Content Area */}
+      <div className="flex-1 flex flex-col overflow-hidden">
+        {/* Top Header */}
+        <Header activeIncidents={activeTickets.length} lastRefreshed={lastRefreshed} />
 
-      {/* KPI Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 flex items-center gap-3">
-          <div className="p-2.5 bg-red-950/60 border border-red-800/60 rounded-lg text-red-400">
-            <AlertCircle className="w-5 h-5" />
-          </div>
-          <div>
-            <span className="text-xs text-slate-400 block font-medium">Active Incidents</span>
-            <span className="text-2xl font-black text-white">{activeTickets.length}</span>
-          </div>
-        </div>
+        {/* Scrollable Content */}
+        <main className="flex-1 overflow-y-auto cc-scroll p-4 space-y-4">
 
-        <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 flex items-center gap-3">
-          <div className="p-2.5 bg-emerald-950/60 border border-emerald-800/60 rounded-lg text-emerald-400">
-            <ShieldCheck className="w-5 h-5" />
-          </div>
-          <div>
-            <span className="text-xs text-slate-400 block font-medium">Grid Health Rate</span>
-            <span className="text-2xl font-black text-emerald-400">{energizedRate}%</span>
-          </div>
-        </div>
+          {/* ── KPI Stat Cards Row ── */}
+          <div className="grid grid-cols-4 gap-3">
+            {/* Active Incidents */}
+            <div className="bg-cc-card border border-cc-border rounded p-3.5 flex items-center gap-3">
+              <div className="w-10 h-10 bg-cc-red-bg border border-cc-red/30 rounded flex items-center justify-center shrink-0">
+                <AlertTriangle className="w-5 h-5 text-cc-red" />
+              </div>
+              <div>
+                <div className="text-[10px] text-cc-text-sec uppercase tracking-wider font-medium">Active Incidents</div>
+                <div className="text-2xl font-extrabold text-cc-text leading-tight">{activeTickets.length}</div>
+              </div>
+            </div>
 
-        <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 flex items-center gap-3">
-          <div className="p-2.5 bg-blue-950/60 border border-blue-800/60 rounded-lg text-blue-400">
-            <Activity className="w-5 h-5" />
-          </div>
-          <div>
-            <span className="text-xs text-slate-400 block font-medium">Monitored Poles</span>
-            <span className="text-2xl font-black text-white">{totalPoles}</span>
-          </div>
-        </div>
+            {/* Grid Health Rate */}
+            <div className="bg-cc-card border border-cc-border rounded p-3.5 flex items-center gap-3">
+              <div className="w-10 h-10 bg-cc-gold-bg border border-cc-gold/30 rounded flex items-center justify-center shrink-0">
+                <ShieldCheck className="w-5 h-5 text-cc-gold" />
+              </div>
+              <div>
+                <div className="text-[10px] text-cc-text-sec uppercase tracking-wider font-medium">Grid Health Rate</div>
+                <div className="flex items-baseline gap-1.5">
+                  <span className="text-2xl font-extrabold text-cc-text leading-tight">{energizedRate}%</span>
+                  <span className={`text-[10px] font-bold ${healthColor}`}>{healthLevel}</span>
+                </div>
+              </div>
+            </div>
 
-        <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 flex items-center gap-3">
-          <div className="p-2.5 bg-amber-950/60 border border-amber-800/60 rounded-lg text-amber-400">
-            <Radio className="w-5 h-5" />
-          </div>
-          <div>
-            <span className="text-xs text-slate-400 block font-medium">Inferred DT Topology (60%)</span>
-            <span className="text-2xl font-black text-amber-400">{unknownTopologyDTs} DTs</span>
-          </div>
-        </div>
-      </div>
+            {/* Monitored Poles */}
+            <div className="bg-cc-card border border-cc-border rounded p-3.5 flex items-center gap-3">
+              <div className="w-10 h-10 bg-cc-green-bg border border-cc-green/30 rounded flex items-center justify-center shrink-0">
+                <Activity className="w-5 h-5 text-cc-green" />
+              </div>
+              <div>
+                <div className="text-[10px] text-cc-text-sec uppercase tracking-wider font-medium">Monitored Poles</div>
+                <div className="flex items-baseline gap-1.5">
+                  <span className="text-2xl font-extrabold text-cc-text leading-tight">{totalPoles.toLocaleString()}</span>
+                  <Activity className="w-3.5 h-3.5 text-cc-text-mut" />
+                </div>
+              </div>
+            </div>
 
-      {/* Main Grid: Left Map View, Right Incident List */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 h-[680px]">
-        <div className="lg:col-span-7 h-full">
-          <MapView network={network} tickets={tickets} />
-        </div>
+            {/* Inferred DT Topology */}
+            <div className="bg-cc-card border border-cc-border rounded p-3.5 flex items-center gap-3">
+              <div className="w-10 h-10 bg-cc-olive-bg border border-cc-olive/30 rounded flex items-center justify-center shrink-0">
+                <Radio className="w-5 h-5 text-cc-olive" />
+              </div>
+              <div>
+                <div className="text-[10px] text-cc-text-sec uppercase tracking-wider font-medium">Inferred DT Topology</div>
+                <div className="flex items-baseline gap-1.5">
+                  <span className="text-2xl font-extrabold text-cc-text leading-tight">{totalDTs} DTs</span>
+                  <span className="text-[10px] text-cc-text-mut">(60%)</span>
+                </div>
+              </div>
+            </div>
+          </div>
 
-        <div className="lg:col-span-5 h-full overflow-y-auto pr-1">
-          <h2 className="text-sm font-bold text-slate-300 mb-3 uppercase tracking-wider flex items-center gap-2">
-            <AlertCircle className="w-4 h-4 text-red-500" />
-            Detected Fault Tickets & Workflows ({tickets.length})
-          </h2>
-          <IncidentList
-            tickets={tickets}
-            onUpdateStatus={handleUpdateStatus}
-            onRepair={handleRepair}
+          {/* ── Map + Fault Detail Split ── */}
+          <div className="grid grid-cols-12 gap-4" style={{ height: '520px' }}>
+            {/* Map View */}
+            <div className="col-span-7 h-full">
+              <MapView network={network} tickets={tickets} />
+            </div>
+
+            {/* Fault Detail / Incident Cards */}
+            <div className="col-span-5 h-full overflow-y-auto cc-scroll pr-1">
+              <div className="flex items-center gap-2 mb-3">
+                <AlertTriangle className="w-3.5 h-3.5 text-cc-red" />
+                <h2 className="text-[11px] font-bold text-cc-text-sec uppercase tracking-wider">
+                  Detected Fault Tickets & Workflows ({tickets.length})
+                </h2>
+              </div>
+              <IncidentList
+                tickets={tickets}
+                onUpdateStatus={handleUpdateStatus}
+                onRepair={handleRepair}
+              />
+            </div>
+          </div>
+
+          {/* ── Fault & Telemetry Simulator ── */}
+          <SimulatorControls
+            network={network}
+            onInject={handleInjectFault}
+            onOutage={handleOutage}
+            onSeed={handleSeed}
           />
-        </div>
+        </main>
       </div>
-
-      {/* Fault Simulator Controls */}
-      <SimulatorControls
-        network={network}
-        onInject={handleInjectFault}
-        onOutage={handleOutage}
-        onSeed={handleSeed}
-      />
-    </main>
+    </div>
   );
 }
