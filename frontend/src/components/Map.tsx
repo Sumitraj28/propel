@@ -1,8 +1,20 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, Polyline, CircleMarker } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, Polyline, CircleMarker, useMap } from 'react-leaflet';
 import L from 'leaflet';
+
+// Helper component to fix map sizing glitches when rendered in dynamic containers
+function MapResizer() {
+  const map = useMap();
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      map.invalidateSize();
+    }, 200);
+    return () => clearTimeout(timer);
+  }, [map]);
+  return null;
+}
 
 // Custom markers — flat, no glow/shadow
 const subIcon = L.divIcon({
@@ -68,9 +80,13 @@ export default function MapView({ network, tickets, onSelectPole }: MapProps) {
   return (
     <div className="w-full h-full relative rounded overflow-hidden border border-cc-border">
       <MapContainer center={center} zoom={14} scrollWheelZoom={true} className="w-full h-full">
+        <MapResizer />
+        {/* Google Maps Roadmap Tile Layer */}
         <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          attribution='&copy; <a href="https://www.google.com/maps">Google Maps</a>'
+          url="https://{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}"
+          subdomains={['mt0', 'mt1', 'mt2', 'mt3']}
+          maxZoom={20}
         />
 
         {/* Substations */}
