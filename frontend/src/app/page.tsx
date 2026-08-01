@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import dynamic from 'next/dynamic';
 import IncidentList from '../components/IncidentList';
 import SimulatorControls from '../components/SimulatorControls';
@@ -16,7 +16,9 @@ export default function OperatorConsole() {
   const [loading, setLoading] = useState(true);
   const [lastRefreshed, setLastRefreshed] = useState<Date>(new Date());
 
-  const fetchData = useCallback(async () => {
+  const isFetchingRef = useRef(false);
+
+  const fetchInitial = useCallback(async () => {
     try {
       const [netRes, tktRes] = await Promise.all([
         fetch(`${API_BASE}/api/network`),
@@ -35,17 +37,62 @@ export default function OperatorConsole() {
 
       setLastRefreshed(new Date());
     } catch (err) {
-      console.error('Error polling KSPDB API:', err);
+      console.error('Error fetching initial KSPDB network data:', err);
     } finally {
       setLoading(false);
     }
   }, []);
 
+  const pollLiveState = useCallback(async () => {
+    if (isFetchingRef.current) return;
+    isFetchingRef.current = true;
+
+    try {
+      const [polesRes, tktRes] = await Promise.all([
+        fetch(`${API_BASE}/api/poles/live-state`),
+        fetch(`${API_BASE}/api/tickets`)
+      ]);
+
+      if (polesRes.ok) {
+        const livePoles = await polesRes.json();
+        const liveStateMap = new Map<string, boolean>();
+        livePoles.forEach((lp: any) => liveStateMap.set(lp.pole_id, lp.energized));
+
+        setNetwork((prevNet: any) => {
+          if (!prevNet || !prevNet.poles) return prevNet;
+          let changed = false;
+          const updatedPoles = prevNet.poles.map((p: any) => {
+            if (liveStateMap.has(p.pole_id)) {
+              const newEnergized = liveStateMap.get(p.pole_id);
+              if (p.is_energized !== newEnergized) {
+                changed = true;
+                return { ...p, is_energized: newEnergized };
+              }
+            }
+            return p;
+          });
+          return changed ? { ...prevNet, poles: updatedPoles } : prevNet;
+        });
+      }
+
+      if (tktRes.ok) {
+        const tktData = await tktRes.json();
+        setTickets(tktData);
+      }
+
+      setLastRefreshed(new Date());
+    } catch (err) {
+      console.error('Error polling live state:', err);
+    } finally {
+      isFetchingRef.current = false;
+    }
+  }, []);
+
   useEffect(() => {
-    fetchData();
-    const interval = setInterval(fetchData, 5000); // 5s polling loop
+    fetchInitial();
+    const interval = setInterval(pollLiveState, 5000); // 5s live polling loop
     return () => clearInterval(interval);
-  }, [fetchData]);
+  }, [fetchInitial, pollLiveState]);
 
   const handleUpdateStatus = async (ticketId: string, status: string) => {
     const res = await fetch(`${API_BASE}/api/tickets/${ticketId}/status`, {
@@ -59,7 +106,7 @@ export default function OperatorConsole() {
       throw new Error(data.error || 'Failed to update ticket status');
     }
 
-    fetchData();
+    pollLiveState();
   };
 
   const handleInjectFault = async (type: string, targetId: string) => {
@@ -74,7 +121,7 @@ export default function OperatorConsole() {
       throw new Error(data.error || 'Failed to inject fault');
     }
 
-    fetchData();
+    pollLiveState();
   };
 
   const handleOutage = async (scope: string, targetId: string) => {
@@ -89,7 +136,7 @@ export default function OperatorConsole() {
       throw new Error(data.error || 'Failed to schedule outage');
     }
 
-    fetchData();
+    pollLiveState();
   };
 
   const handleRepair = async (ticketId: string) => {
@@ -104,7 +151,7 @@ export default function OperatorConsole() {
       throw new Error(data.error || 'Failed to repair fault');
     }
 
-    fetchData();
+    pollLiveState();
   };
 
   const handleSeed = async () => {
@@ -117,7 +164,7 @@ export default function OperatorConsole() {
       throw new Error(data.error || 'Failed to seed database');
     }
 
-    fetchData();
+    fetchInitial();
   };
 
   // Stats calculation

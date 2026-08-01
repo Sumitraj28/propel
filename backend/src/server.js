@@ -66,6 +66,22 @@ app.get('/api/network', async (req, res) => {
   }
 });
 
+// GET /api/poles/live-state
+app.get('/api/poles/live-state', async (req, res) => {
+  try {
+    const result = await query(`
+      SELECT p.pole_id, p.lat, p.lon, COALESCE(s.is_energized, TRUE) as energized
+      FROM poles p
+      LEFT JOIN pole_current_state s ON p.pole_id = s.pole_id
+      WHERE p.device_id IS NOT NULL
+    `);
+    res.json(result.rows);
+  } catch (err) {
+    console.error('[API] /api/poles/live-state error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // 3. Tickets Endpoint
 app.get('/api/tickets', async (req, res) => {
   try {
