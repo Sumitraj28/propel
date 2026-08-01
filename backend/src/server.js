@@ -77,6 +77,75 @@ app.get('/api/tickets', async (req, res) => {
   }
 });
 
+// GET /api/telemetry/recent?limit=30
+app.get('/api/telemetry/recent', async (req, res) => {
+  try {
+    let limit = parseInt(req.query.limit || '30', 10);
+    if (isNaN(limit) || limit < 1) limit = 30;
+    if (limit > 100) limit = 100;
+
+    const result = await query(
+      `SELECT
+        (device_id || '-' || seq) as id,
+        device_id,
+        pole_id,
+        event,
+        energized,
+        ts,
+        received_at
+       FROM telemetry_raw
+       ORDER BY received_at DESC
+       LIMIT $1`,
+      [limit]
+    );
+
+    res.json(result.rows);
+  } catch (err) {
+    console.error('[API] /api/telemetry/recent error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET /api/tickets/live
+app.get('/api/tickets/live', async (req, res) => {
+  try {
+    const result = await query(
+      `SELECT * FROM tickets
+       WHERE status NOT IN ('closed')
+       ORDER BY detected_at DESC`
+    );
+
+    const formatted = result.rows.map(tkt => {
+      // Format location summary e.g. "Span: P-001 -> P-002" to "P-001 ↔ P-002"
+      let locationSummary = tkt.asset_id;
+      if (tkt.asset_id.startsWith('Span:')) {
+        const rawSpan = tkt.asset_id.replace('Span:', '');
+        locationSummary = rawSpan.replace('->', ' ↔ ');
+      }
+
+      return {
+        id: tkt.ticket_id,
+        ticket_id: tkt.ticket_id,
+        fault_type: tkt.fault_type,
+        location_summary: locationSummary,
+        pin_code: tkt.pincode,
+        confidence: tkt.confidence_level,
+        confidence_score: tkt.confidence_score,
+        confidence_reason: tkt.confidence_reason,
+        poles_affected: tkt.affected_pole_count,
+        affected_households: tkt.affected_households,
+        status: tkt.status,
+        updated_at: tkt.verified_at || tkt.resolved_at || tkt.assigned_at || tkt.acknowledged_at || tkt.detected_at
+      };
+    });
+
+    res.json(formatted);
+  } catch (err) {
+    console.error('[API] /api/tickets/live error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Update Ticket Status (with Resolution Telemetry Check)
 app.post('/api/tickets/:id/status', async (req, res) => {
   try {
