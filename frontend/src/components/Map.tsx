@@ -81,12 +81,11 @@ export default function MapView({ network, tickets, onSelectPole }: MapProps) {
     <div className="w-full h-full relative rounded overflow-hidden border border-cc-border">
       <MapContainer center={center} zoom={14} scrollWheelZoom={true} className="w-full h-full">
         <MapResizer />
-        {/* Google Maps Roadmap Tile Layer */}
+        {/* OpenStreetMap Tile Layer */}
         <TileLayer
-          attribution='&copy; <a href="https://www.google.com/maps">Google Maps</a>'
-          url="https://{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}"
-          subdomains={['mt0', 'mt1', 'mt2', 'mt3']}
-          maxZoom={20}
+          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          maxZoom={19}
         />
 
         {/* Substations */}
@@ -156,6 +155,7 @@ export default function MapView({ network, tickets, onSelectPole }: MapProps) {
                   <p className="text-xs text-cc-text-sec mt-1">DT: {pole.dt_id} | Feeder: {pole.feeder_id}</p>
                   <p className="text-xs text-cc-text-sec">Topology: {pole.topology_type?.toUpperCase()}</p>
                   {pole.parent_pole_id && <p className="text-xs text-cc-text-mut">Parent: {pole.parent_pole_id}</p>}
+                  {pole.inferred_parent_pole_id && !pole.parent_pole_id && <p className="text-xs text-cc-text-mut">Inferred Parent: {pole.inferred_parent_pole_id} (Geometrically Inferred)</p>}
                   <p className="text-xs text-cc-text-mut">Ward: {pole.ward} | PIN: {pole.pincode}</p>
                   <p className="text-[11px] text-cc-text-mut mt-1 font-mono">{pole.device_id || 'No Sensor Fitted'}</p>
                 </div>
@@ -164,29 +164,32 @@ export default function MapView({ network, tickets, onSelectPole }: MapProps) {
           );
         })}
 
-        {/* Lines connecting Parent to Child Poles */}
+        {/* Lines connecting Parent to Child Poles (Known or Geometrically Inferred) */}
         {network.poles?.map((pole: any) => {
-          if (!pole.parent_pole_id) return null;
-          const parent = polesMap.get(pole.parent_pole_id);
+          const parentId = pole.parent_pole_id || pole.inferred_parent_pole_id;
+          if (!parentId) return null;
+          const parent = polesMap.get(parentId);
           if (!parent) return null;
 
+          const isInferred = !pole.parent_pole_id && !!pole.inferred_parent_pole_id;
           const isDark = darkPoleIds.has(pole.pole_id) || pole.is_energized === false;
-          const isLowConf = lowConfPoles.has(pole.pole_id);
-          let lineColor = '#3a3a32';
+          const isLowConf = lowConfPoles.has(pole.pole_id) || isInferred;
+
+          let lineColor = isInferred ? '#8a8679' : '#3a3a32';
           if (isDark) lineColor = isLowConf ? '#c4a035' : '#c0392b';
 
           return (
             <Polyline
-              key={`line-${pole.parent_pole_id}-${pole.pole_id}`}
+              key={`line-${parentId}-${pole.pole_id}`}
               positions={[
                 [parent.lat, parent.lon],
                 [pole.lat, pole.lon]
               ]}
               pathOptions={{
                 color: lineColor,
-                weight: isDark ? 3 : 1.5,
-                opacity: isDark ? 0.9 : 0.4,
-                dashArray: isLowConf ? '4, 4' : undefined
+                weight: isDark ? 3 : (isInferred ? 1.5 : 1.5),
+                opacity: isDark ? 0.9 : (isInferred ? 0.6 : 0.4),
+                dashArray: isInferred ? '6, 6' : (isLowConf ? '4, 4' : undefined)
               }}
             />
           );

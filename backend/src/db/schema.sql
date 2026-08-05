@@ -46,6 +46,7 @@ CREATE TABLE poles (
   lon DOUBLE PRECISION NOT NULL,
   seq_on_line INT NULL,
   parent_pole_id VARCHAR(32) REFERENCES poles(pole_id) ON DELETE SET NULL,
+  inferred_parent_pole_id VARCHAR(32) REFERENCES poles(pole_id) ON DELETE SET NULL,
   pole_type VARCHAR(32) NOT NULL DEFAULT 'tangent',
   ward VARCHAR(64) NOT NULL DEFAULT 'Ward 1',
   pincode VARCHAR(16) NULL,
@@ -55,6 +56,7 @@ CREATE TABLE poles (
 
 CREATE INDEX idx_poles_dt_id ON poles(dt_id);
 CREATE INDEX idx_poles_parent_pole_id ON poles(parent_pole_id);
+CREATE INDEX idx_poles_inferred_parent ON poles(inferred_parent_pole_id);
 CREATE INDEX idx_poles_device_id ON poles(device_id);
 
 -- 5. Telemetry Raw (at-least-once deduplicated on (device_id, seq))

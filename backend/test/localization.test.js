@@ -142,4 +142,21 @@ describe('Localization Engine Unit Tests', () => {
 
     expect(tickets).toHaveLength(0);
   });
+
+  test('7. Dead Sensor with Live Child and Deeper Fault: P-002 dark (dead sensor), P-003 live (live child), P-004 dark -> 1 Span Ticket for P-003->P-004', () => {
+    const poleStates = {
+      'P-001': { is_energized: true, status: 'energized' },
+      'P-002': { is_energized: false, status: 'dark' }, // Dead sensor (live child P-003 downstream)
+      'P-003': { is_energized: true, status: 'energized' }, // Live child
+      'P-004': { is_energized: false, status: 'dark' } // Real fault below P-003
+    };
+
+    const tickets = detectFaults([sampleDT], { 'DT-0001': knownPoles }, poleStates);
+
+    expect(tickets).toHaveLength(1);
+    const tkt = tickets[0];
+    expect(tkt.fault_type).toBe('span');
+    expect(tkt.asset_id).toBe('Span:P-003->P-004');
+    expect(tkt.confidence_level).toBe('HIGH');
+  });
 });

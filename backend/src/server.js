@@ -13,7 +13,8 @@ const {
   injectSingleDeadSensor,
   injectScheduledOutage,
   repairFault,
-  runLocalizationForNetwork
+  runLocalizationForNetwork,
+  scheduleDebouncedLocalization
 } = require('./simulator/faultSimulator');
 const { seedDatabase } = require('./db/seed');
 
@@ -32,11 +33,9 @@ app.post('/telemetry', (req, res) => {
   // Enqueue for batch insertion & async DB write
   batchBuffer.enqueue(payload);
 
-  // Trigger immediate background localization check if power_lost
+  // Trigger debounced background localization check if power_lost
   if (payload.event === 'power_lost' || payload.energized === false) {
-    setImmediate(() => {
-      runLocalizationForNetwork().catch(err => console.error('[SERVER] Localization error:', err));
-    });
+    scheduleDebouncedLocalization();
   }
 
   return res.status(202).json({ status: 'accepted', device_id: payload.device_id, seq: payload.seq });

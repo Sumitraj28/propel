@@ -6,6 +6,14 @@ This document records key decisions, assumptions, and design choices made during
 
 ## Log of Decisions (Newest First)
 
+### [2026-08-03] Decision 10: Persistence of Inferred Line Topology via Separate Schema Column
+- **Decision**: Persist computed nearest-neighbor tree connections for the 60% missing-topology poles into a dedicated `inferred_parent_pole_id` column during database seeding (`seed.js`) via `buildDTGraph()`. Keep `parent_pole_id` strictly NULL to accurately represent missing physical telemetry topology per system data model specs. Render inferred lines on Leaflet map as dashed connections (`dashArray: '6, 6'`).
+- **Rationale**: Computing radial nearest-neighbor trees once at seed/initialization time avoids performing ~2,500 distance calculations repeatedly during frequent UI map polls (every 5s). Persisting `inferred_parent_pole_id` separately allows `GET /api/network` to serve complete line topology instantly via standard `SELECT p.* FROM poles` without mutating ground-truth nullability of `parent_pole_id`.
+
+### [2026-08-03] Decision 9: Trailing Debounce for Full-Network Localization Re-scans
+- **Decision**: Implemented a 1000ms trailing debouncer (`scheduleDebouncedLocalization`) for network-wide localization engine scans triggered by incoming `power_lost` telemetry events in `POST /telemetry`. If a scan is currently running or scheduled, incoming `power_lost` events set a pending flag to ensure a single trailing scan runs after the current window completes.
+- **Rationale**: Under peak burst load (5,000 messages / 10s), un-throttled calls to `runLocalizationForNetwork()` would spawn thousands of redundant, overlapping PostgreSQL full-table queries, leading to database connection pool exhaustion and high CPU contention. Capping scans to ~1 scan/sec coalesces burst telemetry into unified scan passes while keeping the 120s operator UI detection SLA comfortably met (1s vs 120s).
+
 ### [2026-08-02] Decision 8: Full-Width Layout Shell & Header Brand Integration
 - **Decision**: Removed the left sidebar navigation column to streamline the command center layout into a full-width console. Integrated KSPDB branding and logo into the top header bar alongside real-time status indicators.
 - **Rationale**: Maximize screen real estate for the Leaflet operator map and active fault incident cards. Command shortcuts remain accessible directly on each incident ticket card.

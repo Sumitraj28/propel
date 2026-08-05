@@ -192,7 +192,10 @@ function detectFaults(dtList, polesByDT, poleStates, scheduledOutages = [], now 
 
         // Case A: Single Dead Sensor (This node is dark, but its subtree has live devices)
         if (node.device_id && !getState(nodeId).is_energized && subRes.liveDevices > 0) {
-          // Single dead sensor — NOT a fault ticket!
+          // Single dead sensor — NOT a fault ticket! Continue recursing into children to find deeper faults.
+          for (const childId of node.children) {
+            checkSpanFaults(childId, nodeId);
+          }
           return;
         }
 

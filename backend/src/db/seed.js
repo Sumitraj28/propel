@@ -1,4 +1,5 @@
 const { query, initSchema } = require('./index');
+const { buildDTGraph } = require('../engine/topologyBuilder');
 
 // Haversine distance in meters
 function haversineDistance(lat1, lon1, lat2, lon2) {
@@ -153,6 +154,19 @@ async function seedDatabase() {
         poleCounter++;
       }
 
+      // If missing topology, calculate inferred parents using buildDTGraph
+      if (!isKnownTopology) {
+        const graph = buildDTGraph({ lat: dtLat, lon: dtLon }, dtPoles);
+        for (const pd of dtPoles) {
+          const node = graph.nodes.get(pd.pole_id);
+          pd.inferred_parent_pole_id = node?.inferredParent || null;
+        }
+      } else {
+        for (const pd of dtPoles) {
+          pd.inferred_parent_pole_id = null;
+        }
+      }
+
       dtCounter++;
     }
   }
@@ -180,8 +194,8 @@ async function seedDatabase() {
   console.log(`[SEED] Inserting ${polesList.length} poles into DB...`);
   for (const pole of polesList) {
     await query(
-      `INSERT INTO poles (pole_id, feeder_id, dt_id, lat, lon, seq_on_line, parent_pole_id, pole_type, ward, pincode, device_id, topology_type)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
+      `INSERT INTO poles (pole_id, feeder_id, dt_id, lat, lon, seq_on_line, parent_pole_id, inferred_parent_pole_id, pole_type, ward, pincode, device_id, topology_type)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, NULL, $8, $9, $10, $11, $12)`,
       [
         pole.pole_id, pole.feeder_id, pole.dt_id, pole.lat, pole.lon,
         pole.seq_on_line, pole.parent_pole_id, pole.pole_type, pole.ward,
@@ -195,6 +209,17 @@ async function seedDatabase() {
         `INSERT INTO pole_current_state (pole_id, device_id, is_energized, last_seen, last_seq, battery_mv, rssi, fw, status)
          VALUES ($1, $2, TRUE, NOW(), 1, 3500, -85, '1.4.2', 'energized')`,
         [pole.pole_id, pole.device_id]
+      );
+    }
+  }
+
+  // Update inferred_parent_pole_id after all poles are created (to satisfy FK constraints)
+  console.log(`[SEED] Updating inferred_parent_pole_id for missing topology poles...`);
+  for (const pole of polesList) {
+    if (pole.inferred_parent_pole_id) {
+      await query(
+        `UPDATE poles SET inferred_parent_pole_id = $1 WHERE pole_id = $2`,
+        [pole.inferred_parent_pole_id, pole.pole_id]
       );
     }
   }

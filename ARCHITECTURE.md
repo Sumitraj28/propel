@@ -54,7 +54,8 @@ graph TD
    - *Batching*: A background timer flushes the queue every **100ms** or whenever queue size reaches **200 items**, executing bulk `INSERT INTO telemetry_raw ... ON CONFLICT (device_id, seq) DO NOTHING`.
 2. **Deduplication & Clock Skew Handling**:
    - Devices deliver messages at-least-once. Deduplication relies strictly on `(device_id, seq)`.
-   - Device clocks experience ±90s skew; therefore, `ts` is logged for audit but ordering and state transitions depend on sequence number `seq`. Sequence number resets (`seq = 0` or `event = 'boot'`) re-arm device tracking.
+   - Device clocks experience ±90s skew; therefore, `ts` is logged for audit but ordering and state transitions depend on sequence number `seq`.
+   - *Strict Sequence-Based State Ordering*: State updates in `pole_current_state` enforce `EXCLUDED.last_seq >= pole_current_state.last_seq` in both directions (dark→live and live→dark). The previous `OR status = 'energized'` bypass was removed so stale out-of-order energized messages cannot clear a real fault. Genuine hardware reboots (`event = 'boot'`) reset sequence tracking to 0 only when `EXCLUDED.last_seen >= pole_current_state.last_seen`, preventing replayed stale boot messages from disturbing current device state.
 3. **Dying Gasp vs Silent Outage (Firmware 1.2.x)**:
    - ~70% of devices (FW ≥1.3) transmit a `power_lost` event before dying.
    - ~8% of devices (FW 1.2.x) send nothing on power loss.

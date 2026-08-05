@@ -29,6 +29,36 @@ async function runLocalizationForNetwork() {
   return { detected, tickets };
 }
 
+let isScanRunning = false;
+let isScanPending = false;
+let scanTimer = null;
+const DEBOUNCE_INTERVAL_MS = 1000;
+
+function scheduleDebouncedLocalization(delayMs = DEBOUNCE_INTERVAL_MS) {
+  isScanPending = true;
+
+  if (scanTimer || isScanRunning) {
+    return;
+  }
+
+  scanTimer = setTimeout(async () => {
+    scanTimer = null;
+    isScanRunning = true;
+    isScanPending = false;
+
+    try {
+      await runLocalizationForNetwork();
+    } catch (err) {
+      console.error('[LOCALIZATION] Debounced scan error:', err);
+    } finally {
+      isScanRunning = false;
+      if (isScanPending) {
+        scheduleDebouncedLocalization(DEBOUNCE_INTERVAL_MS);
+      }
+    }
+  }, delayMs);
+}
+
 async function injectSpanFault(poleId) {
   const poleRes = await query(`SELECT * FROM poles WHERE pole_id = $1`, [poleId]);
   if (poleRes.rowCount === 0) throw new Error(`Pole ${poleId} not found`);
@@ -233,6 +263,7 @@ async function repairFault(ticketId) {
 
 module.exports = {
   runLocalizationForNetwork,
+  scheduleDebouncedLocalization,
   injectSpanFault,
   injectDTFault,
   injectFeederFault,

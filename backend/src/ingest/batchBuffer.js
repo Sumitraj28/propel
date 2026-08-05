@@ -67,13 +67,27 @@ class BatchBuffer {
 
       await query(insertSql, queryParams);
 
-      // 2. Update pole_current_state for each unique pole/device (only if seq >= last_seq or boot)
-      // Group by pole_id and take highest seq in batch
+      // 2. Update pole_current_state for each unique pole/device (strictly using sequence ordering or genuine boot reset)
       const stateMap = new Map();
       for (const item of itemsToProcess) {
         const existing = stateMap.get(item.pole_id);
-        if (!existing || item.seq >= existing.seq || item.event === 'boot') {
+        if (!existing) {
           stateMap.set(item.pole_id, item);
+        } else {
+          const itemTs = new Date(item.ts || Date.now()).getTime();
+          const existingTs = new Date(existing.ts || Date.now()).getTime();
+
+          if (item.event === 'boot') {
+            if (itemTs >= existingTs) {
+              stateMap.set(item.pole_id, item);
+            }
+          } else if (existing.event === 'boot') {
+            if (item.seq >= existing.seq || itemTs >= existingTs) {
+              stateMap.set(item.pole_id, item);
+            }
+          } else if (item.seq >= existing.seq) {
+            stateMap.set(item.pole_id, item);
+          }
         }
       }
 
@@ -83,23 +97,45 @@ class BatchBuffer {
           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
           ON CONFLICT (pole_id) DO UPDATE
           SET
-            device_id = EXCLUDED.device_id,
+            device_id = CASE
+              WHEN EXCLUDED.last_seq >= pole_current_state.last_seq OR ($10 = 'boot' AND EXCLUDED.last_seen >= pole_current_state.last_seen)
+              THEN EXCLUDED.device_id
+              ELSE pole_current_state.device_id
+            END,
             is_energized = CASE
-              WHEN EXCLUDED.last_seq >= pole_current_state.last_seq OR EXCLUDED.status = 'energized' THEN EXCLUDED.is_energized
+              WHEN EXCLUDED.last_seq >= pole_current_state.last_seq OR ($10 = 'boot' AND EXCLUDED.last_seen >= pole_current_state.last_seen)
+              THEN EXCLUDED.is_energized
               ELSE pole_current_state.is_energized
             END,
-            last_seen = EXCLUDED.last_seen,
+            last_seen = CASE
+              WHEN EXCLUDED.last_seq >= pole_current_state.last_seq OR ($10 = 'boot' AND EXCLUDED.last_seen >= pole_current_state.last_seen)
+              THEN EXCLUDED.last_seen
+              ELSE pole_current_state.last_seen
+            END,
             last_seq = CASE
-              WHEN EXCLUDED.last_seq = 0 THEN 0 -- Boot reset
-              WHEN EXCLUDED.last_seq > pole_current_state.last_seq THEN EXCLUDED.last_seq
+              WHEN EXCLUDED.last_seq >= pole_current_state.last_seq OR ($10 = 'boot' AND EXCLUDED.last_seen >= pole_current_state.last_seen)
+              THEN EXCLUDED.last_seq
               ELSE pole_current_state.last_seq
             END,
-            battery_mv = EXCLUDED.battery_mv,
-            rssi = EXCLUDED.rssi,
-            fw = EXCLUDED.fw,
+            battery_mv = CASE
+              WHEN EXCLUDED.last_seq >= pole_current_state.last_seq OR ($10 = 'boot' AND EXCLUDED.last_seen >= pole_current_state.last_seen)
+              THEN EXCLUDED.battery_mv
+              ELSE pole_current_state.battery_mv
+            END,
+            rssi = CASE
+              WHEN EXCLUDED.last_seq >= pole_current_state.last_seq OR ($10 = 'boot' AND EXCLUDED.last_seen >= pole_current_state.last_seen)
+              THEN EXCLUDED.rssi
+              ELSE pole_current_state.rssi
+            END,
+            fw = CASE
+              WHEN EXCLUDED.last_seq >= pole_current_state.last_seq OR ($10 = 'boot' AND EXCLUDED.last_seen >= pole_current_state.last_seen)
+              THEN EXCLUDED.fw
+              ELSE pole_current_state.fw
+            END,
             status = CASE
-              WHEN EXCLUDED.is_energized = FALSE THEN 'dark'
-              ELSE 'energized'
+              WHEN EXCLUDED.last_seq >= pole_current_state.last_seq OR ($10 = 'boot' AND EXCLUDED.last_seen >= pole_current_state.last_seen)
+              THEN (CASE WHEN EXCLUDED.is_energized = FALSE THEN 'dark' ELSE 'energized' END)
+              ELSE pole_current_state.status
             END;
         `;
 
@@ -112,7 +148,8 @@ class BatchBuffer {
           item.battery_mv || null,
           item.rssi || null,
           item.fw || null,
-          item.energized ? 'energized' : 'dark'
+          item.energized ? 'energized' : 'dark',
+          item.event || 'telemetry'
         ]);
       }
     } catch (err) {
