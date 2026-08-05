@@ -3,8 +3,8 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "build": "cd frontend && npm install && npm run build",
-    "start": "cd frontend && npm start",
-    "dev": "cd frontend && npm run dev"
+    "build": "if [ -d \"frontend\" ]; then cd frontend && npm install && npm run build; else npm install && npm run build; fi",
+    "start": "if [ -d \"frontend\" ]; then cd frontend && npm start; else npm start; fi",
+    "dev": "if [ -d \"frontend\" ]; then cd frontend && npm run dev; else npm run dev; fi"
   }
 }
